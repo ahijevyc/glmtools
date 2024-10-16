@@ -107,32 +107,11 @@ def create_parser():
 
 import numpy as np
 import subprocess, glob
-from datetime import datetime, timedelta
+from datetime import timedelta
 import os
 from functools import partial
 
 import logging
-class MyFormatter(logging.Formatter):
-    """ Custom class to allow logging of microseconds"""
-    converter=datetime.fromtimestamp
-    def formatTime(self, record, datefmt=None):
-        ct = self.converter(record.created)
-        if datefmt:
-            s = ct.strftime(datefmt)
-        else:
-            t = ct.strftime("%Y-%m-%d %H:%M:%S")
-            s = "%s,%03d" % (t, record.msecs)
-        return s
-logoutfile = logging.FileHandler("make_GLM_grid.log")
-formatter = MyFormatter(fmt='%(levelname)s %(asctime)s %(message)s',
-                        datefmt='%Y-%m-%dT%H:%M:%S.%f')
-logoutfile.setFormatter(formatter)
-logging.basicConfig(handlers = [logoutfile],
-                    level=logging.DEBUG)
-
-# Separate from log setup - actually log soemthign specific to this module.
-log = logging.getLogger(__name__)
-log.info("Starting GLM Gridding")
 
 def nearest_resolution(args):
     """ Uses args.dx to find the closest resolution specified by the
@@ -184,11 +163,11 @@ def grid_setup(args):
 
     from glmtools.io.glm import parse_glm_filename
     if args.start is not None:
-        start_time = datetime.strptime(args.start[:19], '%Y-%m-%dT%H:%M:%S')
+        start_time = args.start
     else:
         start_time = min(filename_starts)
     if args.end is not None:
-        end_time = datetime.strptime(args.end[:19], '%Y-%m-%dT%H:%M:%S')
+        end_time = args.end
     else:
         # Used to use max(filename_ends), but on 27 Oct 2020, the filename
         # ends started to report the time of the last event in the file,
@@ -200,9 +179,12 @@ def grid_setup(args):
         # longer start on an even minute boundary.
         end_time = max(filename_starts) + timedelta(0, 20)
 
-    date = datetime(start_time.year, start_time.month, start_time.day)
+    date = start_time.floor("1D")
 
     outpath = args.outdir
+    if not os.path.exists(outpath):
+        logging.warning(f"makedirs {outpath}")
+        os.makedirs(outpath)
 
     if args.fixed_grid:
         proj_name = 'geos'
